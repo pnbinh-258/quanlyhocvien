@@ -218,6 +218,17 @@ function LoginModal({onLogin,onClose,loggingIn}){
     <//>`;
 }
 
+// ── FormField (top-level để tránh remount mỗi lần gõ phím) ───────────────
+const FIELD_LBL={display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:4};
+function FormField({label,required,error,children}){
+  return html`
+    <div>
+      <label style=${FIELD_LBL}>${label}${required&&html`<span style=${{color:"#ef4444",marginLeft:2}}>*</span>`}</label>
+      ${children}
+      ${error&&html`<p style=${{fontSize:11,color:"#ef4444",marginTop:3}}>${error}</p>`}
+    </div>`;
+}
+
 // ── StudentForm ────────────────────────────────────────────────────────────
 function StudentForm({student,doctors,onSave,onClose,saving}){
   const blank={id:"",name:"",birthYear:"",type:"BS Thực hành",unit:"",startDate:"",endDate:"",doctorOfficial:"",doctorActual:"",note:""};
@@ -238,25 +249,18 @@ function StudentForm({student,doctors,onSave,onClose,saving}){
   };
   const handleSave=()=>{ if(!validate()) return; onSave({...form,id:form.id||`s${Date.now()}`,birthYear:parseInt(form.birthYear)}); };
   const inp=(err)=>({width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${err?"#f87171":"#d1d5db"}`,fontSize:13,outline:"none",background:err?"#fef2f2":"white"});
-  const lbl={display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:4};
-  const Field=({label,required,error,children})=>html`
-    <div>
-      <label style=${lbl}>${label}${required&&html`<span style=${{color:"#ef4444",marginLeft:2}}>*</span>`}</label>
-      ${children}
-      ${error&&html`<p style=${{fontSize:11,color:"#ef4444",marginTop:3}}>${error}</p>`}
-    </div>`;
   return html`
     <div style=${{display:"flex",flexDirection:"column",gap:16}}>
       <div style=${{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style=${{gridColumn:"1/-1"}}><${Field} label="Họ và tên" required error=${errors.name}><input style=${inp(errors.name)} value=${form.name} onChange=${e=>set("name",e.target.value)} placeholder="Nhập họ và tên đầy đủ"/><//>  </div>
-        <${Field} label="Năm sinh" required error=${errors.birthYear}><input style=${inp(errors.birthYear)} type="number" value=${form.birthYear} onChange=${e=>set("birthYear",e.target.value)} placeholder="VD: 1995" min="1950" max="2010"/><//>
-        <${Field} label="Đối tượng thực hành" required><select style=${inp(false)} value=${form.type} onChange=${e=>set("type",e.target.value)}>${TYPES.map(t=>html`<option key=${t} value=${t}>${t}</option>`)}</select><//>
-        <div style=${{gridColumn:"1/-1"}}><${Field} label="Đơn vị quản lý" required error=${errors.unit}><input style=${inp(errors.unit)} value=${form.unit} onChange=${e=>set("unit",e.target.value)} placeholder="Tên bệnh viện / đơn vị công tác"/><//>  </div>
-        <${Field} label="Ngày bắt đầu" required error=${errors.startDate}><input style=${inp(errors.startDate)} type="date" value=${form.startDate} onChange=${e=>set("startDate",e.target.value)}/><//>
-        <${Field} label="Ngày kết thúc" required error=${errors.endDate}><input style=${inp(errors.endDate)} type="date" value=${form.endDate} onChange=${e=>set("endDate",e.target.value)}/><//>
-        <${Field} label="BS hướng dẫn (giấy tờ)" required error=${errors.doctorOfficial}><select style=${inp(errors.doctorOfficial)} value=${form.doctorOfficial} onChange=${e=>set("doctorOfficial",e.target.value)}><option value="">-- Chọn bác sĩ --</option>${doctors.map(d=>html`<option key=${d.id} value=${d.id}>${d.name}</option>`)}</select><//>
-        <${Field} label="BS hướng dẫn (thực tế)" required error=${errors.doctorActual}><select style=${inp(errors.doctorActual)} value=${form.doctorActual} onChange=${e=>set("doctorActual",e.target.value)}><option value="">-- Chọn bác sĩ --</option>${doctors.map(d=>html`<option key=${d.id} value=${d.id}>${d.name}</option>`)}</select><//>
-        <div style=${{gridColumn:"1/-1"}}><${Field} label="Ghi chú"><textarea style=${{...inp(false),resize:"none"}} rows="2" value=${form.note} onChange=${e=>set("note",e.target.value)} placeholder="Ghi chú thêm (nếu có)..."/><//>  </div>
+        <div style=${{gridColumn:"1/-1"}}><${FormField} label="Họ và tên" required error=${errors.name}><input style=${inp(errors.name)} value=${form.name} onChange=${e=>set("name",e.target.value)} placeholder="Nhập họ và tên đầy đủ"/><//>  </div>
+        <${FormField} label="Năm sinh" required error=${errors.birthYear}><input style=${inp(errors.birthYear)} type="number" value=${form.birthYear} onChange=${e=>set("birthYear",e.target.value)} placeholder="VD: 1995" min="1950" max="2010"/><//>
+        <${FormField} label="Đối tượng thực hành" required><select style=${inp(false)} value=${form.type} onChange=${e=>set("type",e.target.value)}>${TYPES.map(t=>html`<option key=${t} value=${t}>${t}</option>`)}</select><//>
+        <div style=${{gridColumn:"1/-1"}}><${FormField} label="Đơn vị quản lý" required error=${errors.unit}><input style=${inp(errors.unit)} value=${form.unit} onChange=${e=>set("unit",e.target.value)} placeholder="Tên bệnh viện / đơn vị công tác"/><//>  </div>
+        <${FormField} label="Ngày bắt đầu" required error=${errors.startDate}><input style=${inp(errors.startDate)} type="date" value=${form.startDate} onChange=${e=>set("startDate",e.target.value)}/><//>
+        <${FormField} label="Ngày kết thúc" required error=${errors.endDate}><input style=${inp(errors.endDate)} type="date" value=${form.endDate} onChange=${e=>set("endDate",e.target.value)}/><//>
+        <${FormField} label="BS hướng dẫn (giấy tờ)" required error=${errors.doctorOfficial}><select style=${inp(errors.doctorOfficial)} value=${form.doctorOfficial} onChange=${e=>set("doctorOfficial",e.target.value)}><option value="">-- Chọn bác sĩ --</option>${doctors.map(d=>html`<option key=${d.id} value=${d.id}>${d.name}</option>`)}</select><//>
+        <${FormField} label="BS hướng dẫn (thực tế)" required error=${errors.doctorActual}><select style=${inp(errors.doctorActual)} value=${form.doctorActual} onChange=${e=>set("doctorActual",e.target.value)}><option value="">-- Chọn bác sĩ --</option>${doctors.map(d=>html`<option key=${d.id} value=${d.id}>${d.name}</option>`)}</select><//>
+        <div style=${{gridColumn:"1/-1"}}><${FormField} label="Ghi chú"><textarea style=${{...inp(false),resize:"none"}} rows="2" value=${form.note} onChange=${e=>set("note",e.target.value)} placeholder="Ghi chú thêm (nếu có)..."/><//>  </div>
       </div>
       <div style=${{display:"flex",gap:12,paddingTop:12,borderTop:"1px solid #f3f4f6"}}>
         <button onClick=${onClose} style=${{flex:1,padding:"9px 0",border:"1px solid #d1d5db",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",background:"white",color:"#374151"}}>Huỷ</button>
