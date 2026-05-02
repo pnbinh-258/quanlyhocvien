@@ -52,7 +52,7 @@ const api = {
 };
 
 // ── LocalStorage fallback ──────────────────────────────────────────────────
-const LS_S="mmn_stu_v4", LS_D="mmn_doc_v4", LS_SESSION="mmn_session_v1";
+const LS_S="mmn_stu_v4", LS_D="mmn_doc_v4", LS_SESSION="mmn_session_v1", LS_TMPL="mmn_tmpl_v1";
 const loadLS=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}};
 const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
 
@@ -230,9 +230,14 @@ function FormField({label,required,error,children}){
 }
 
 // ── StudentForm ────────────────────────────────────────────────────────────
-function StudentForm({student,doctors,onSave,onClose,saving}){
+function StudentForm({student,template,doctors,onSave,onClose,saving}){
   const blank={id:"",name:"",birthYear:"",type:"BS Thực hành",unit:"",startDate:"",endDate:"",doctorOfficial:"",doctorActual:"",note:""};
   const [form,setForm]=useState(student?{...student}:blank);
+  const [tmplApplied,setTmplApplied]=useState(false);
+  const applyTemplate=()=>{
+    setForm(f=>({...f,type:template.type,unit:template.unit,startDate:template.startDate,endDate:template.endDate,doctorOfficial:template.doctorOfficial,doctorActual:template.doctorActual}));
+    setTmplApplied(true);
+  };
   const [errors,setErrors]=useState({});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const validate=()=>{
@@ -251,6 +256,14 @@ function StudentForm({student,doctors,onSave,onClose,saving}){
   const inp=(err)=>({width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${err?"#f87171":"#d1d5db"}`,fontSize:13,outline:"none",background:err?"#fef2f2":"white"});
   return html`
     <div style=${{display:"flex",flexDirection:"column",gap:16}}>
+      ${!student&&template&&html`
+        <div style=${{display:"flex",alignItems:"center",justifyContent:"space-between",background:tmplApplied?"#f0fdf4":"#eff6ff",border:("1px solid "+(tmplApplied?"#86efac":"#93c5fd")),borderRadius:10,padding:"10px 14px"}}>
+          <div>
+            <p style=${{margin:0,fontSize:12,fontWeight:700,color:tmplApplied?"#166534":"#1e40af"}}>${tmplApplied?"✅ Đã áp dụng mẫu học viên trước":"📋 Có mẫu từ học viên vừa nhập"}</p>
+            <p style=${{margin:"2px 0 0",fontSize:11,color:tmplApplied?"#4ade80":"#60a5fa"}}>${template.unit} · ${template.type} · ${template.startDate} → ${template.endDate}</p>
+          </div>
+          ${!tmplApplied&&html`<button onClick=${applyTemplate} style=${{padding:"6px 14px",border:"none",borderRadius:8,background:"#1e3a8a",color:"white",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",marginLeft:12}}>Dùng lại</button>`}
+        </div>`}
       <div style=${{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style=${{gridColumn:"1/-1"}}><${FormField} label="Họ và tên" required error=${errors.name}><input style=${inp(errors.name)} value=${form.name} onChange=${e=>set("name",e.target.value)} placeholder="Nhập họ và tên đầy đủ"/><//>  </div>
         <${FormField} label="Năm sinh" required error=${errors.birthYear}><input style=${inp(errors.birthYear)} type="number" value=${form.birthYear} onChange=${e=>set("birthYear",e.target.value)} placeholder="VD: 1995" min="1950" max="2010"/><//>
@@ -691,8 +704,9 @@ function App(){
   const [loading,     setLoading]     = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [authToken,   setAuthToken]   = useState(null);
-  const [showLogin,   setShowLogin]   = useState(false);
-  const [loggingIn,   setLoggingIn]   = useState(false);
+  const [showLogin,    setShowLogin]    = useState(false);
+  const [loggingIn,    setLoggingIn]    = useState(false);
+  const [lastTemplate, setLastTemplate] = useState(loadLS(LS_TMPL, null));
 
   // ── Load data từ Google Sheets khi khởi động ─────────────────────────────
   const loadFromSheets = async (isManual=false) => {
@@ -763,6 +777,10 @@ function App(){
       ? students.map(x=>x.id===s.id?s:x)
       : [...students, s];
     await syncStudents(newList);
+    // Lưu mẫu chung để dùng cho học viên tiếp theo
+    const tmpl = { type:s.type, unit:s.unit, startDate:s.startDate, endDate:s.endDate, doctorOfficial:s.doctorOfficial, doctorActual:s.doctorActual };
+    setLastTemplate(tmpl);
+    saveLS(LS_TMPL, tmpl);
     setSaving(false);
     setModal(null);
   };
@@ -900,7 +918,7 @@ function App(){
 
         <main style=${{flex:1,padding:24,overflowY:"auto"}}>
           ${page==="dashboard"&&html`<${Dashboard}     students=${students} doctors=${doctors}/>`}
-          ${page==="students" &&html`<${StudentList}   students=${students} doctors=${doctors} onAdd=${()=>setModal({mode:"add"})} onEdit=${s=>setModal({mode:"edit",student:s})} onDelete=${id=>setDeleteId(id)} isLoggedIn=${!!currentUser}/>`}
+          ${page==="students" &&html`<${StudentList}   students=${students} doctors=${doctors} onAdd=${()=>setModal({mode:"add",template:lastTemplate})} onEdit=${s=>setModal({mode:"edit",student:s})} onDelete=${id=>setDeleteId(id)} isLoggedIn=${!!currentUser}/>`}
           ${page==="doctors"  &&html`<${DoctorsPage}   doctors=${doctors} students=${students} onAdd=${addDoctor} onDelete=${deleteDoctor} saving=${saving} isLoggedIn=${!!currentUser}/>`}
           ${page==="stats"    &&html`<${StatisticsPage} students=${students}/>`}
         </main>
@@ -910,7 +928,7 @@ function App(){
 
       ${modal&&html`
         <${Modal} title=${modal.mode==="add"?"➕ Thêm học viên mới":"✏️ Chỉnh sửa học viên"} onClose=${()=>!saving&&setModal(null)}>
-          <${StudentForm} student=${modal.student} doctors=${doctors} onSave=${saveStudent} onClose=${()=>setModal(null)} saving=${saving}/>
+          <${StudentForm} student=${modal.student} template=${modal.template} doctors=${doctors} onSave=${saveStudent} onClose=${()=>setModal(null)} saving=${saving}/>
         <//>`}
 
       ${deleteId&&html`
