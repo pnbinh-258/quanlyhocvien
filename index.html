@@ -231,7 +231,7 @@ function FormField({label,required,error,children}){
 
 // ── StudentForm ────────────────────────────────────────────────────────────
 function StudentForm({student,template,doctors,onSave,onClose,saving}){
-  const blank={id:"",name:"",birthYear:"",type:"BS Thực hành",unit:"",startDate:"",endDate:"",doctorOfficial:"",doctorActual:"",note:""};
+  const blank={id:"",name:"",birthYear:"",phone:"",type:"BS Thực hành",unit:"",startDate:"",endDate:"",doctorOfficial:"",doctorActual:"",note:""};
   const [form,setForm]=useState(student?{...student}:blank);
   const [tmplApplied,setTmplApplied]=useState(false);
   const applyTemplate=()=>{
@@ -244,6 +244,7 @@ function StudentForm({student,template,doctors,onSave,onClose,saving}){
     const e={};
     if(!form.name.trim()) e.name="Vui lòng nhập họ tên";
     if(!form.birthYear||isNaN(form.birthYear)||form.birthYear<1950||form.birthYear>2010) e.birthYear="Năm sinh không hợp lệ";
+    if(form.phone&&!/^(0[3|5|7|8|9])\d{8}$/.test(form.phone.replace(/\s/g,""))) e.phone="SĐT không hợp lệ (10 số, bắt đầu 03/05/07/08/09)";
     if(!form.unit.trim()) e.unit="Vui lòng nhập đơn vị";
     if(!form.startDate) e.startDate="Chọn ngày bắt đầu";
     if(!form.endDate) e.endDate="Chọn ngày kết thúc";
@@ -267,6 +268,7 @@ function StudentForm({student,template,doctors,onSave,onClose,saving}){
       <div style=${{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style=${{gridColumn:"1/-1"}}><${FormField} label="Họ và tên" required error=${errors.name}><input style=${inp(errors.name)} value=${form.name} onChange=${e=>set("name",e.target.value)} placeholder="Nhập họ và tên đầy đủ"/><//>  </div>
         <${FormField} label="Năm sinh" required error=${errors.birthYear}><input style=${inp(errors.birthYear)} type="number" value=${form.birthYear} onChange=${e=>set("birthYear",e.target.value)} placeholder="VD: 1995" min="1950" max="2010"/><//>
+        <${FormField} label="Số điện thoại" error=${errors.phone}><input style=${inp(errors.phone)} type="tel" value=${form.phone||""} onChange=${e=>set("phone",e.target.value)} placeholder="VD: 0901234567"/><//>
         <${FormField} label="Đối tượng thực hành" required><select style=${inp(false)} value=${form.type} onChange=${e=>set("type",e.target.value)}>${TYPES.map(t=>html`<option key=${t} value=${t}>${t}</option>`)}</select><//>
         <div style=${{gridColumn:"1/-1"}}><${FormField} label="Đơn vị quản lý" required error=${errors.unit}><input style=${inp(errors.unit)} value=${form.unit} onChange=${e=>set("unit",e.target.value)} placeholder="Tên bệnh viện / đơn vị công tác"/><//>  </div>
         <${FormField} label="Ngày bắt đầu" required error=${errors.startDate}><input style=${inp(errors.startDate)} type="date" value=${form.startDate} onChange=${e=>set("startDate",e.target.value)}/><//>
@@ -430,7 +432,7 @@ function StudentList({students,doctors,onAdd,onEdit,onDelete,isLoggedIn}){
                 const b=TYPE_BADGE[s.type]||{};
                 return html`
                   <tr key=${s.id} style=${{background:rowBg,borderBottom:"1px solid #f9fafb",opacity:status==="expired"?.65:1}}>
-                    <td style=${td}><p style=${{margin:0,fontWeight:700,color:"#111827"}}>${s.name}</p>${s.note&&html`<p style=${{margin:0,fontSize:11,color:"#9ca3af",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${s.note}</p>`}</td>
+                    <td style=${td}><p style=${{margin:0,fontWeight:700,color:"#111827"}}>${s.name}</p>${s.phone&&html`<p style=${{margin:0,fontSize:11,color:"#2563eb"}}>📞 ${s.phone}</p>`}${s.note&&html`<p style=${{margin:0,fontSize:11,color:"#9ca3af",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${s.note}</p>`}</td>
                     <td style=${{...td,color:"#4b5563"}}>${s.birthYear}</td>
                     <td style=${td}><span style=${{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:9999,fontSize:11,fontWeight:700,background:b.bg,color:b.color}}>${TYPE_ICONS[s.type]} ${s.type}</span></td>
                     <td style=${{...td,color:"#4b5563",maxWidth:120}}><div style=${{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${s.unit}</div></td>
