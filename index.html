@@ -49,10 +49,11 @@ const api = {
   saveStudents(data, token)   { return this.call("saveStudents", { token, data }); },
   saveDoctors(data, token)    { return this.call("saveDoctors",  { token, data }); },
   saveAll(s, d, token)        { return this.call("saveAll", { token, students:s, doctors:d }); },
+  saveY5(data, token)         { return this.call("saveY5",  { token, data }); },
 };
 
 // ── LocalStorage fallback ──────────────────────────────────────────────────
-const LS_S="mmn_stu_v4", LS_D="mmn_doc_v4", LS_SESSION="mmn_session_v1", LS_TMPL="mmn_tmpl_v1";
+const LS_S="mmn_stu_v4", LS_D="mmn_doc_v4", LS_SESSION="mmn_session_v1", LS_TMPL="mmn_tmpl_v1", LS_Y5="mmn_y5_v1";
 const loadLS=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}};
 const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
 
@@ -100,6 +101,7 @@ const TYPE_ICONS={
 };
 const CHART_COLORS=["#0ea5e9","#8b5cf6","#10b981","#f59e0b","#ec4899","#f97316","#14b8a6"];
 const MONTHS_VI=["Th.1","Th.2","Th.3","Th.4","Th.5","Th.6","Th.7","Th.8","Th.9","Th.10","Th.11","Th.12"];
+const Y5_SCHOOLS=["ĐH Y dược TP.HCM","ĐH Y khoa Phạm Ngọc Thạch","ĐH Nguyễn Tất Thành","ĐH Khoa học Sức khỏe"];
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
 const Ico=({size=18,style={},paths})=>h("svg",{width:size,height:size,style,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",dangerouslySetInnerHTML:{__html:paths}});
@@ -303,7 +305,7 @@ function StatCard({icon,label,value,sub,grad}){
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
-function Dashboard({students,doctors}){
+function Dashboard({students,doctors,activeY5Count}){
   const active =students.filter(s=>getStatus(s.endDate)!=="expired");
   const warning=students.filter(s=>getStatus(s.endDate)==="warning");
   const expired=students.filter(s=>getStatus(s.endDate)==="expired");
@@ -343,6 +345,7 @@ function Dashboard({students,doctors}){
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>🧠</span>`} label="BS Đột quỵ"     value=${cnt("BS Lớp Đột quỵ")}  grad="linear-gradient(135deg,#be185d,#ec4899)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>💊</span>`} label="ĐD Đột quỵ"     value=${cnt("ĐD Lớp Đột quỵ")} grad="linear-gradient(135deg,#c2410c,#f97316)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>👩‍⚕️</span>`} label="ĐD Thực hành" value=${cnt("ĐD Thực hành")}    grad="linear-gradient(135deg,#0f766e,#14b8a6)"/>
+        <${StatCard} icon=${html`<span style=${{fontSize:20}}>🎒</span>`} label="SV Y5 đang TH" value=${activeY5Count||0}           grad="linear-gradient(135deg,#0369a1,#38bdf8)" sub="Sinh viên đại học"/>
       </div>
 
       <div style=${{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:24}}>
@@ -691,10 +694,212 @@ function StatisticsPage({students}){
     </div>`;
 }
 
+// ── Y5Page ─────────────────────────────────────────────────────────────────
+function Y5Page({y5classes, onSync, saving, setSaving, isLoggedIn}){
+  const blank={school:Y5_SCHOOLS[0],studentCount:"",startDate:"",endDate:"",supervisor:"",note:""};
+  const [form,setForm]=useState(blank);
+  const [errs,setErrs]=useState({});
+  const [filterSchool,setFilterSchool]=useState("all");
+  const [filterStatus,setFilterStatus]=useState("all");
+  const [editId,setEditId]=useState(null);
+  const [deleteId,setDeleteId]=useState(null);
+
+  const set=(f,v)=>setForm(p=>({...p,[f]:v}));
+  const validate=()=>{
+    const e={};
+    if(!form.studentCount||isNaN(+form.studentCount)||+form.studentCount<1) e.studentCount="Nhập số học viên hợp lệ";
+    if(!form.startDate) e.startDate="Chọn ngày bắt đầu";
+    if(!form.endDate)   e.endDate="Chọn ngày kết thúc";
+    if(form.startDate&&form.endDate&&form.startDate>form.endDate) e.endDate="Ngày kết thúc phải sau ngày bắt đầu";
+    setErrs(e);
+    return Object.keys(e).length===0;
+  };
+  const handleSave=async()=>{
+    if(!validate()) return;
+    setSaving(true);
+    const rec={...form,studentCount:+form.studentCount,updatedAt:new Date().toISOString()};
+    let newList;
+    if(editId){
+      newList=y5classes.map(c=>c.id===editId?{...rec,id:editId}:c);
+      setEditId(null);
+    } else {
+      newList=[...y5classes,{...rec,id:"y5_"+Date.now()}];
+    }
+    await onSync(newList);
+    setForm(blank);
+    setErrs({});
+    setSaving(false);
+  };
+  const startEdit=(c)=>{
+    setForm({school:c.school,studentCount:String(c.studentCount),startDate:c.startDate,endDate:c.endDate,supervisor:c.supervisor||"",note:c.note||""});
+    setEditId(c.id);
+    setErrs({});
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+  const cancelEdit=()=>{setForm(blank);setEditId(null);setErrs({});};
+  const handleDelete=async(id)=>{await onSync(y5classes.filter(c=>c.id!==id));setDeleteId(null);};
+
+  const filtered=useMemo(()=>y5classes.filter(c=>{
+    if(filterSchool!=="all"&&c.school!==filterSchool) return false;
+    if(filterStatus!=="all"&&getStatus(c.endDate)!==filterStatus) return false;
+    return true;
+  }),[y5classes,filterSchool,filterStatus]);
+
+  const activeClasses=y5classes.filter(c=>getStatus(c.endDate)==="active"||getStatus(c.endDate)==="warning");
+  const totalActive=activeClasses.reduce((s,c)=>s+(+c.studentCount||0),0);
+  const expiringSoon=y5classes.filter(c=>getStatus(c.endDate)==="warning").length;
+
+  const inp=(style={})=>({width:"100%",padding:"8px 12px",border:"1px solid #d1d5db",borderRadius:8,fontSize:13,outline:"none",...style});
+  const sel=inp();
+  const statusLabel={active:"Đang TH",warning:"Sắp kết thúc",expired:"Đã kết thúc",unknown:"Chưa rõ"};
+  const statusColor={active:{bg:"#d1fae5",color:"#065f46"},warning:{bg:"#fff7ed",color:"#9a3412"},expired:{bg:"#f3f4f6",color:"#6b7280"},unknown:{bg:"#f3f4f6",color:"#9ca3af"}};
+
+  return html`<div class="fadein" style=${{display:"flex",flexDirection:"column",gap:24}}>
+    <!-- Stat cards -->
+    <div style=${{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:16}}>
+      <${StatCard} icon=${html`<span style=${{fontSize:22}}>🎒</span>`} label="SV Y5 đang TH"    value=${totalActive}           grad="linear-gradient(135deg,#0369a1,#38bdf8)" sub="sinh viên"/>
+      <${StatCard} icon=${html`<span style=${{fontSize:22}}>📅</span>`} label="Đợt đang chạy"    value=${activeClasses.length}  grad="linear-gradient(135deg,#059669,#34d399)" sub="đợt thực hành"/>
+      <${StatCard} icon=${html`<span style=${{fontSize:22}}>⏳</span>`} label="Sắp kết thúc"      value=${expiringSoon}          grad="linear-gradient(135deg,#d97706,#fbbf24)" sub="trong 7 ngày"/>
+      <${StatCard} icon=${html`<span style=${{fontSize:22}}>🏫</span>`} label="Tổng số đợt"       value=${y5classes.length}      grad="linear-gradient(135deg,#7c3aed,#a78bfa)" sub="tất cả thời gian"/>
+    </div>
+
+    <!-- Form thêm/sửa (chỉ hiện khi đăng nhập) -->
+    ${isLoggedIn&&html`
+      <div style=${{background:"white",borderRadius:16,border:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(0,0,0,.06)",overflow:"hidden"}}>
+        <div style=${{padding:"16px 20px",borderBottom:"1px solid #f3f4f6",background:editId?"#fffbeb":"#f0f9ff",display:"flex",alignItems:"center",gap:8}}>
+          <span style=${{fontSize:18}}>${editId?"✏️":"➕"}</span>
+          <h3 style=${{margin:0,fontWeight:800,fontSize:15,color:"#1e3a8a"}}>${editId?"Chỉnh sửa đợt thực hành":"Thêm đợt thực hành mới"}</h3>
+          ${editId&&html`<button onClick=${cancelEdit} style=${{marginLeft:"auto",padding:"4px 12px",border:"1px solid #d1d5db",borderRadius:8,background:"white",fontSize:12,cursor:"pointer"}}>Huỷ</button>`}
+        </div>
+        <div style=${{padding:20}}>
+          <div style=${{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
+            <${FormField} label="Trường" required=${true}>
+              <select value=${form.school} onChange=${e=>set("school",e.target.value)} style=${sel}>
+                ${Y5_SCHOOLS.map(s=>html`<option key=${s} value=${s}>${s}</option>`)}
+              </select>
+            <//>
+            <${FormField} label="Số lượng sinh viên" required=${true} error=${errs.studentCount}>
+              <input type="number" min="1" value=${form.studentCount} onChange=${e=>set("studentCount",e.target.value)}
+                style=${inp({border:("1px solid "+(errs.studentCount?"#f87171":"#d1d5db"))})} placeholder="VD: 20"/>
+            <//>
+            <${FormField} label="Ngày bắt đầu" required=${true} error=${errs.startDate}>
+              <input type="date" value=${form.startDate} onChange=${e=>set("startDate",e.target.value)}
+                style=${inp({border:("1px solid "+(errs.startDate?"#f87171":"#d1d5db"))})}/>
+            <//>
+            <${FormField} label="Ngày kết thúc" required=${true} error=${errs.endDate}>
+              <input type="date" value=${form.endDate} onChange=${e=>set("endDate",e.target.value)}
+                style=${inp({border:("1px solid "+(errs.endDate?"#f87171":"#d1d5db"))})}/>
+            <//>
+            <${FormField} label="Nhân viên phụ trách">
+              <input type="text" value=${form.supervisor} onChange=${e=>set("supervisor",e.target.value)}
+                style=${inp()} placeholder="Tuỳ chọn"/>
+            <//>
+            <${FormField} label="Ghi chú">
+              <input type="text" value=${form.note} onChange=${e=>set("note",e.target.value)}
+                style=${inp()} placeholder="Tuỳ chọn"/>
+            <//>
+          </div>
+          <div style=${{marginTop:16,display:"flex",justifyContent:"flex-end"}}>
+            <button onClick=${handleSave} disabled=${saving}
+              style=${{display:"flex",alignItems:"center",gap:8,padding:"10px 20px",border:"none",borderRadius:10,background:"linear-gradient(135deg,#1e3a8a,#2563eb)",color:"white",fontWeight:700,fontSize:13,cursor:saving?"not-allowed":"pointer",opacity:saving?.7:1}}>
+              <${ISave} size=${15}/> ${saving?"Đang lưu...":(editId?"Cập nhật":"Thêm đợt")}
+            </button>
+          </div>
+        </div>
+      </div>`}
+
+    <!-- Filter & table -->
+    <div style=${{background:"white",borderRadius:16,border:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(0,0,0,.06)",overflow:"hidden"}}>
+      <div style=${{padding:"16px 20px",borderBottom:"1px solid #f3f4f6",display:"flex",flexWrap:"wrap",alignItems:"center",gap:10}}>
+        <${ICal} size=${18} style=${{color:"#1e3a8a"}}/>
+        <h3 style=${{margin:0,fontWeight:800,fontSize:15,color:"#111827",flex:1}}>Danh sách đợt thực hành (${filtered.length})</h3>
+        <select value=${filterSchool} onChange=${e=>setFilterSchool(e.target.value)}
+          style=${{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:8,fontSize:12,minWidth:140}}>
+          <option value="all">Tất cả trường</option>
+          ${Y5_SCHOOLS.map(s=>html`<option key=${s} value=${s}>${s}</option>`)}
+        </select>
+        <select value=${filterStatus} onChange=${e=>setFilterStatus(e.target.value)}
+          style=${{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:8,fontSize:12}}>
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang TH</option>
+          <option value="warning">Sắp kết thúc</option>
+          <option value="expired">Đã kết thúc</option>
+        </select>
+      </div>
+      <div style=${{overflowX:"auto"}}>
+        <table style=${{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr style=${{background:"#f9fafb",borderBottom:"2px solid #e5e7eb"}}>
+            ${["Trường","Số lượng","Thời gian","Trạng thái","Nhân viên phụ trách","Ghi chú",""].map(h=>html`<th key=${h} style=${{padding:"10px 16px",textAlign:"left",fontWeight:700,color:"#374151",fontSize:12,whiteSpace:"nowrap"}}>${h}</th>`)}
+          </tr></thead>
+          <tbody>
+            ${filtered.length===0&&html`<tr><td colspan="7" style=${{textAlign:"center",padding:"32px 16px",color:"#9ca3af"}}>Chưa có đợt thực hành nào</td></tr>`}
+            ${filtered.map(c=>{
+              const st=getStatus(c.endDate);
+              const sc=statusColor[st]||statusColor.unknown;
+              return html`<tr key=${c.id} style=${{borderBottom:"1px solid #f3f4f6",transition:"background .1s"}}
+                onMouseEnter=${e=>e.currentTarget.style.background="#f9fafb"}
+                onMouseLeave=${e=>e.currentTarget.style.background="transparent"}>
+                <td style=${{padding:"12px 16px",fontWeight:700,color:"#111827"}}>${c.school}</td>
+                <td style=${{padding:"12px 16px",textAlign:"center"}}>
+                  <span style=${{fontWeight:900,fontSize:18,color:"#1e3a8a"}}>${c.studentCount}</span>
+                  <span style=${{fontSize:11,color:"#9ca3af",marginLeft:4}}>SV</span>
+                </td>
+                <td style=${{padding:"12px 16px",whiteSpace:"nowrap"}}>
+                  <p style=${{margin:0,fontSize:12,color:"#374151"}}>${formatDate(c.startDate)} → ${formatDate(c.endDate)}</p>
+                  ${st!=="expired"&&daysLeft(c.endDate)!==null&&html`<p style=${{margin:"2px 0 0",fontSize:11,color:st==="warning"?"#c2410c":"#6b7280"}}>
+                    ${st==="warning"?"⚠️ Còn "+daysLeft(c.endDate)+" ngày":"Còn "+daysLeft(c.endDate)+" ngày"}
+                  </p>`}
+                </td>
+                <td style=${{padding:"12px 16px"}}>
+                  <span style=${{...sc,padding:"3px 10px",borderRadius:9999,fontSize:11,fontWeight:700}}>${statusLabel[st]||st}</span>
+                </td>
+                <td style=${{padding:"12px 16px",color:"#4b5563"}}>${c.supervisor||"—"}</td>
+                <td style=${{padding:"12px 16px",color:"#6b7280",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>${c.note||"—"}</td>
+                <td style=${{padding:"12px 16px",whiteSpace:"nowrap"}}>
+                  ${isLoggedIn&&html`<div style=${{display:"flex",gap:6}}>
+                    <button onClick=${()=>startEdit(c)} title="Sửa"
+                      style=${{padding:6,border:"1px solid #d1d5db",borderRadius:8,background:"white",cursor:"pointer",display:"flex"}}>
+                      <${IEdit} size=${14} style=${{color:"#374151"}}/>
+                    </button>
+                    <button onClick=${()=>setDeleteId(c.id)} title="Xoá"
+                      style=${{padding:6,border:"1px solid #fca5a5",borderRadius:8,background:"#fff5f5",cursor:"pointer",display:"flex"}}>
+                      <${ITrash} size=${14} style=${{color:"#dc2626"}}/>
+                    </button>
+                  </div>`}
+                </td>
+              </tr>`;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Delete confirm -->
+    ${deleteId&&html`
+      <div style=${{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style=${{position:"absolute",inset:0,background:"rgba(0,0,0,.45)"}} onClick=${()=>setDeleteId(null)}/>
+        <div class="fadein" style=${{position:"relative",background:"white",borderRadius:16,padding:28,maxWidth:380,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
+          <div style=${{width:52,height:52,background:"#fee2e2",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+            <${ITrash} size=${22} style=${{color:"#dc2626"}}/>
+          </div>
+          <h3 style=${{margin:"0 0 8px",fontWeight:800,fontSize:17,color:"#111827"}}>Xoá đợt thực hành?</h3>
+          <p style=${{margin:"0 0 24px",fontSize:13,color:"#6b7280"}}>Dữ liệu đợt thực hành này sẽ bị xoá vĩnh viễn.</p>
+          <div style=${{display:"flex",gap:10,justifyContent:"center"}}>
+            <button onClick=${()=>setDeleteId(null)}
+              style=${{flex:1,padding:"10px 0",border:"1px solid #d1d5db",borderRadius:10,background:"white",fontWeight:700,fontSize:13,cursor:"pointer"}}>Huỷ</button>
+            <button onClick=${()=>handleDelete(deleteId)}
+              style=${{flex:1,padding:"10px 0",border:"none",borderRadius:10,background:"#dc2626",color:"white",fontWeight:700,fontSize:13,cursor:"pointer"}}>Xoá</button>
+          </div>
+        </div>
+      </div>`}
+  </div>`;
+}
+
 // ── App ────────────────────────────────────────────────────────────────────
 function App(){
   const [students,    setStudents]    = useState([]);
   const [doctors,     setDoctors]     = useState([]);
+  const [y5classes,   setY5classes]   = useState([]);
   const [page,        setPage]        = useState("dashboard");
   const [modal,       setModal]       = useState(null);
   const [deleteId,    setDeleteId]    = useState(null);
@@ -718,8 +923,9 @@ function App(){
       const data = await api.getAll();
       if(data.error) throw new Error(data.error);
 
-      let stu = data.students || [];
-      let doc = data.doctors  || [];
+      let stu = data.students  || [];
+      let doc = data.doctors   || [];
+      let y5  = data.y5classes || [];
 
       // Nếu Sheets trống → ưu tiên localStorage, không overwrite dữ liệu cục bộ
       if(stu.length===0 && doc.length===0){
@@ -732,15 +938,20 @@ function App(){
         saveLS(LS_S, stu);
         saveLS(LS_D, doc);
       }
+      // Y5: luôn dùng Sheets nếu có, ngược lại dùng localStorage
+      if(y5.length > 0){ saveLS(LS_Y5, y5); }
+      else { y5 = loadLS(LS_Y5, []); }
 
       setStudents(stu);
       setDoctors(doc);
+      setY5classes(y5);
       setSyncStatus("idle");
       setLastSync(new Date().toLocaleTimeString("vi-VN"));
     } catch(e){
       console.warn("Sheets error:", e);
       setStudents(loadLS(LS_S, SEED_STUDENTS));
       setDoctors(loadLS(LS_D, SEED_DOCTORS));
+      setY5classes(loadLS(LS_Y5, []));
       setSyncStatus("error");
     } finally {
       setSyncing(false);
@@ -769,6 +980,12 @@ function App(){
     setDoctors(newList);
     saveLS(LS_D, newList);
     try { await api.saveDoctors(newList, authToken); setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN")); }
+    catch(e){ setSyncStatus("error"); }
+  };
+  const syncY5 = async (newList) => {
+    setY5classes(newList);
+    saveLS(LS_Y5, newList);
+    try { await api.saveY5(newList, authToken); setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN")); }
     catch(e){ setSyncStatus("error"); }
   };
 
@@ -828,13 +1045,15 @@ function App(){
 
   const warnCount  = students.filter(s=>getStatus(s.endDate)==="warning").length;
   const activeCount= students.filter(s=>getStatus(s.endDate)!=="expired").length;
-  const titles={dashboard:"Tổng quan",students:"Quản lý học viên",doctors:"Nhân sự khoa",stats:"Thống kê biểu đồ"};
+  const activeY5Count = useMemo(()=>y5classes.filter(c=>getStatus(c.endDate)==="active"||getStatus(c.endDate)==="warning").reduce((s,c)=>s+(+c.studentCount||0),0),[y5classes]);
+  const titles={dashboard:"Tổng quan",students:"Quản lý học viên",doctors:"Nhân sự khoa",stats:"Thống kê biểu đồ",y5:"Sinh viên Y5"};
 
   const navItems=[
     {id:"dashboard",label:"Tổng quan",  icon:html`<${IDash}    size=${18}/>`},
     {id:"students", label:"Học viên",   icon:html`<${IUsers}   size=${18}/>`,badge:activeCount},
     {id:"doctors",  label:"Nhân sự khoa",icon:html`<${ISteth}   size=${18}/>`},
     {id:"stats",    label:"Thống kê",   icon:html`<${IBar}     size=${18}/>`},
+    {id:"y5",       label:"Sinh viên Y5",icon:html`<${ICal}    size=${18}/>`,badge:activeY5Count||undefined},
   ];
 
   const navBtn=(item)=>html`
@@ -919,10 +1138,11 @@ function App(){
         </header>
 
         <main style=${{flex:1,padding:24,overflowY:"auto"}}>
-          ${page==="dashboard"&&html`<${Dashboard}     students=${students} doctors=${doctors}/>`}
+          ${page==="dashboard"&&html`<${Dashboard}     students=${students} doctors=${doctors} activeY5Count=${activeY5Count}/>`}
           ${page==="students" &&html`<${StudentList}   students=${students} doctors=${doctors} onAdd=${()=>setModal({mode:"add",template:lastTemplate})} onEdit=${s=>setModal({mode:"edit",student:s})} onDelete=${id=>setDeleteId(id)} isLoggedIn=${!!currentUser}/>`}
           ${page==="doctors"  &&html`<${DoctorsPage}   doctors=${doctors} students=${students} onAdd=${addDoctor} onDelete=${deleteDoctor} saving=${saving} isLoggedIn=${!!currentUser}/>`}
           ${page==="stats"    &&html`<${StatisticsPage} students=${students}/>`}
+          ${page==="y5"       &&html`<${Y5Page}        y5classes=${y5classes} onSync=${syncY5} saving=${saving} setSaving=${setSaving} isLoggedIn=${!!currentUser}/>`}
         </main>
       </div>
 
