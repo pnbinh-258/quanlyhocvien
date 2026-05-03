@@ -85,21 +85,22 @@ const SEED_STUDENTS=[
 ];
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const TYPES=["BS Thực hành","BS Nội trú","BS CK1","BS CK2","BS Lớp Đột quỵ","ĐD Lớp Đột quỵ","ĐD Thực hành"];
+const TYPES=["BS Thực hành","BS Nội trú","BS CK1","BS CK2","Thạc sĩ","BS Lớp Đột quỵ","ĐD Lớp Đột quỵ","ĐD Thực hành"];
 const TYPE_BADGE={
   "BS Thực hành":   {bg:"#e0f2fe",color:"#0c4a6e"},
   "BS Nội trú":     {bg:"#ede9fe",color:"#4c1d95"},
   "BS CK1":         {bg:"#d1fae5",color:"#064e3b"},
   "BS CK2":         {bg:"#fef3c7",color:"#78350f"},
+  "Thạc sĩ":        {bg:"#fae8ff",color:"#6b21a8"},
   "BS Lớp Đột quỵ":{bg:"#fce7f3",color:"#831843"},
   "ĐD Lớp Đột quỵ":{bg:"#ffedd5",color:"#7c2d12"},
   "ĐD Thực hành":  {bg:"#ccfbf1",color:"#134e4a"},
 };
 const TYPE_ICONS={
   "BS Thực hành":"🩺","BS Nội trú":"🏥","BS CK1":"📋","BS CK2":"🎓",
-  "BS Lớp Đột quỵ":"🧠","ĐD Lớp Đột quỵ":"💊","ĐD Thực hành":"👩‍⚕️",
+  "Thạc sĩ":"🎓","BS Lớp Đột quỵ":"🧠","ĐD Lớp Đột quỵ":"💊","ĐD Thực hành":"👩‍⚕️",
 };
-const CHART_COLORS=["#0ea5e9","#8b5cf6","#10b981","#f59e0b","#ec4899","#f97316","#14b8a6"];
+const CHART_COLORS=["#0ea5e9","#8b5cf6","#10b981","#f59e0b","#a855f7","#ec4899","#f97316","#14b8a6"];
 const MONTHS_VI=["Th.1","Th.2","Th.3","Th.4","Th.5","Th.6","Th.7","Th.8","Th.9","Th.10","Th.11","Th.12"];
 const Y5_SCHOOLS=["ĐH Y dược TP.HCM","ĐH Y khoa Phạm Ngọc Thạch","ĐH Nguyễn Tất Thành","ĐH Khoa học Sức khỏe"];
 
@@ -342,6 +343,7 @@ function Dashboard({students,doctors,activeY5Count}){
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>🏥</span>`} label="Nội trú"         value=${cnt("BS Nội trú")}       grad="linear-gradient(135deg,#7c3aed,#a855f7)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>📋</span>`} label="CK1"             value=${cnt("BS CK1")}           grad="linear-gradient(135deg,#d97706,#f59e0b)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>🎓</span>`} label="CK2"             value=${cnt("BS CK2")}           grad="linear-gradient(135deg,#ea580c,#fb923c)"/>
+        <${StatCard} icon=${html`<span style=${{fontSize:20}}>🎓</span>`} label="Thạc sĩ"          value=${cnt("Thạc sĩ")}          grad="linear-gradient(135deg,#7e22ce,#a855f7)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>🧠</span>`} label="BS Đột quỵ"     value=${cnt("BS Lớp Đột quỵ")}  grad="linear-gradient(135deg,#be185d,#ec4899)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>💊</span>`} label="ĐD Đột quỵ"     value=${cnt("ĐD Lớp Đột quỵ")} grad="linear-gradient(135deg,#c2410c,#f97316)"/>
         <${StatCard} icon=${html`<span style=${{fontSize:20}}>👩‍⚕️</span>`} label="ĐD Thực hành" value=${cnt("ĐD Thực hành")}    grad="linear-gradient(135deg,#0f766e,#14b8a6)"/>
