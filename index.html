@@ -346,6 +346,7 @@ function StudentForm({student,template,doctors,onSave,onClose,saving,authToken})
   const [uploadingPhoto,setUploadingPhoto]=useState(false);
   const [photoErr,setPhotoErr]=useState("");
   const [showPicker,setShowPicker]=useState(false);
+  const [pendingPhotoId,setPendingPhotoId]=useState(null);
   const applyTemplate=()=>{
     setForm(f=>({...f,type:template.type,unit:template.unit,startDate:template.startDate,endDate:template.endDate,doctorOfficial:template.doctorOfficial,doctorActual:template.doctorActual}));
     setTmplApplied(true);
@@ -368,8 +369,8 @@ function StudentForm({student,template,doctors,onSave,onClose,saving,authToken})
   };
   const handlePickPending=(p)=>{
     set("photo",p.driveUrl);
+    setPendingPhotoId(p.id);
     setShowPicker(false);
-    api.markPhotoUsed(p.id,authToken).catch(()=>{});
   };
   const validate=()=>{
     const e={};
@@ -384,7 +385,11 @@ function StudentForm({student,template,doctors,onSave,onClose,saving,authToken})
     if(!form.doctorActual) e.doctorActual="Chọn BS thực tế";
     setErrors(e); return Object.keys(e).length===0;
   };
-  const handleSave=()=>{ if(!validate()) return; onSave({...form,id:form.id||`s${Date.now()}`,birthYear:parseInt(form.birthYear)}); };
+  const handleSave=()=>{
+    if(!validate()) return;
+    if(pendingPhotoId) api.markPhotoUsed(pendingPhotoId,authToken).catch(()=>{});
+    onSave({...form,id:form.id||`s${Date.now()}`,birthYear:parseInt(form.birthYear)});
+  };
   const inp=(err)=>({width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${err?"#f87171":"#d1d5db"}`,fontSize:13,outline:"none",background:err?"#fef2f2":"white"});
   return html`
     <div style=${{display:"flex",flexDirection:"column",gap:16}}>
