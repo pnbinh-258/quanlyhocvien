@@ -64,7 +64,14 @@ const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d;};
 const parseDate=(s)=>{if(!s)return null;const d=new Date(s);d.setHours(0,0,0,0);return d;};
 const daysLeft=(e)=>{const end=parseDate(e);if(!end)return null;return Math.ceil((end-today())/86400000);};
-const formatDate=(s)=>{if(!s)return"—";const[y,m,d]=s.split("-");return`${d}/${m}/${y}`;};
+// Chuẩn hóa mọi kiểu ngày trả về từ Sheets (Date object → ISO đầy đủ "2026-07-14T17:00:00.000Z") về "yyyy-mm-dd"
+const toISODateOnly=(s)=>{
+  if(!s) return "";
+  const str=String(s);
+  const m=str.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m?m[1]:str;
+};
+const formatDate=(s)=>{if(!s)return"—";const iso=toISODateOnly(s);const[y,m,d]=iso.split("-");return`${d}/${m}/${y}`;};
 const addDays=(base,n)=>{const d=new Date(base);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
 const todayStr=()=>new Date().toISOString().split("T")[0];
 const getStatus=(e)=>{const dl=daysLeft(e);if(dl===null)return"unknown";if(dl<=0)return"expired";if(dl<=7)return"warning";return"active";};
@@ -1176,9 +1183,9 @@ function App(){
       const data = await api.getAll();
       if(data.error) throw new Error(data.error);
 
-      let stu = data.students  || [];
+      let stu = (data.students  || []).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate)}));
       let doc = data.doctors   || [];
-      let y5  = data.y5classes || [];
+      let y5  = (data.y5classes || []).map(c=>({...c,startDate:toISODateOnly(c.startDate),endDate:toISODateOnly(c.endDate)}));
 
       // Nếu Sheets trống → ưu tiên localStorage, không overwrite dữ liệu cục bộ
       if(stu.length===0 && doc.length===0){
@@ -1202,9 +1209,9 @@ function App(){
       setLastSync(new Date().toLocaleTimeString("vi-VN"));
     } catch(e){
       console.warn("Sheets error:", e);
-      setStudents(loadLS(LS_S, SEED_STUDENTS));
+      setStudents(loadLS(LS_S, SEED_STUDENTS).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate)})));
       setDoctors(loadLS(LS_D, SEED_DOCTORS));
-      setY5classes(loadLS(LS_Y5, []));
+      setY5classes(loadLS(LS_Y5, []).map(c=>({...c,startDate:toISODateOnly(c.startDate),endDate:toISODateOnly(c.endDate)})));
       setSyncStatus("error");
     } finally {
       setSyncing(false);
