@@ -93,6 +93,15 @@ function resizeImageFile(file, maxDim=800, quality=0.82){
   });
 }
 
+// ── Chuyển link Google Drive bất kỳ về dạng thumbnail hiển thị được trong <img> ─
+function driveThumb(url, size=200){
+  if(!url) return "";
+  const m = url.match(/[-\w]{25,}/);
+  const id = m ? m[0] : null;
+  if(!id) return url;
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;
+}
+
 // ── Seed data (dùng lần đầu nếu Sheets trống) ─────────────────────────────
 const T=todayStr();
 const SEED_DOCTORS=[
@@ -287,7 +296,7 @@ function DateInput({value,onChange,style,placeholder}){
 
 // ── Avatar (ảnh học viên hoặc chữ cái đầu) ──────────────────────────────────
 function Avatar({photo,name,size=40}){
-  if(photo) return html`<img src=${photo} style=${{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"1px solid #e5e7eb"}}/>`;
+  if(photo) return html`<img src=${driveThumb(photo,size*3)} style=${{width:size,height:size,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"1px solid #e5e7eb",background:"#f3f4f6"}}/>`;
   return html`<div style=${{width:size,height:size,borderRadius:"50%",background:"#dbeafe",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
     <span style=${{color:"#1e3a8a",fontWeight:800,fontSize:size*0.4}}>${(name||"?").trim()[0]||"?"}</span>
   </div>`;
@@ -319,7 +328,7 @@ function PendingPhotoPicker({authToken,onPick,onClose}){
             ${(photos||[]).map(p=>html`
               <button key=${p.id} onClick=${()=>onPick(p)}
                 style=${{border:"1px solid #e5e7eb",borderRadius:10,padding:8,background:"white",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                <img src=${p.driveUrl} style=${{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:8,background:"#f3f4f6"}}/>
+                <img src=${driveThumb(p.driveUrl,300)} style=${{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:8,background:"#f3f4f6"}}/>
                 <p style=${{margin:0,fontSize:11,fontWeight:700,color:"#111827",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",width:"100%"}}>${p.studentName||"(không rõ tên)"}</p>
                 <p style=${{margin:0,fontSize:10,color:"#9ca3af"}}>${formatDate((p.uploadedAt||"").split("T")[0])}</p>
               </button>`)}
