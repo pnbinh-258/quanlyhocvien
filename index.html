@@ -1233,20 +1233,32 @@ function App(){
   const syncStudents = async (newList) => {
     setStudents(newList);
     saveLS(LS_S, newList);
-    try { await api.saveStudents(newList, authToken); setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN")); }
-    catch(e){ setSyncStatus("error"); }
+    try {
+      const r = await api.saveStudents(newList, authToken);
+      if(r && r.error) throw new Error(r.error);
+      setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN"));
+      return { ok:true };
+    } catch(e){ setSyncStatus("error"); return { ok:false, error: e.message||"Lỗi kết nối" }; }
   };
   const syncDoctors = async (newList) => {
     setDoctors(newList);
     saveLS(LS_D, newList);
-    try { await api.saveDoctors(newList, authToken); setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN")); }
-    catch(e){ setSyncStatus("error"); }
+    try {
+      const r = await api.saveDoctors(newList, authToken);
+      if(r && r.error) throw new Error(r.error);
+      setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN"));
+      return { ok:true };
+    } catch(e){ setSyncStatus("error"); return { ok:false, error: e.message||"Lỗi kết nối" }; }
   };
   const syncY5 = async (newList) => {
     setY5classes(newList);
     saveLS(LS_Y5, newList);
-    try { await api.saveY5(newList, authToken); setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN")); }
-    catch(e){ setSyncStatus("error"); }
+    try {
+      const r = await api.saveY5(newList, authToken);
+      if(r && r.error) throw new Error(r.error);
+      setSyncStatus("idle"); setLastSync(new Date().toLocaleTimeString("vi-VN"));
+      return { ok:true };
+    } catch(e){ setSyncStatus("error"); return { ok:false, error: e.message||"Lỗi kết nối" }; }
   };
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -1255,12 +1267,16 @@ function App(){
     const newList = s.id && students.find(x=>x.id===s.id)
       ? students.map(x=>x.id===s.id?s:x)
       : [...students, s];
-    await syncStudents(newList);
+    const result = await syncStudents(newList);
+    setSaving(false);
+    if(!result.ok){
+      alert("Lưu học viên thất bại: " + result.error + "\n\nDữ liệu chưa được lưu lên Google Sheets. Nếu lỗi \"Unauthorized\", hãy đăng xuất và đăng nhập lại rồi thử lưu tiếp.");
+      return;
+    }
     // Lưu mẫu chung để dùng cho học viên tiếp theo
     const tmpl = { type:s.type, unit:s.unit, startDate:s.startDate, endDate:s.endDate, doctorOfficial:s.doctorOfficial, doctorActual:s.doctorActual };
     setLastTemplate(tmpl);
     saveLS(LS_TMPL, tmpl);
-    setSaving(false);
     setModal(null);
   };
   const deleteStudent = async (id) => {
