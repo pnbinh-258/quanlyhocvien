@@ -72,6 +72,13 @@ const toISODateOnly=(s)=>{
   return m?m[1]:str;
 };
 const formatDate=(s)=>{if(!s)return"—";const iso=toISODateOnly(s);const[y,m,d]=iso.split("-");return`${d}/${m}/${y}`;};
+// Sheets lưu SĐT dạng số sẽ mất số 0 đứng đầu (VD: 987774326 thay vì 0987774326) → tự thêm lại
+const normalizePhone=(p)=>{
+  if(p===null||p===undefined||p==="") return "";
+  const str=String(p).replace(/\s/g,"");
+  if(/^[3|5|7|8|9]\d{8}$/.test(str)) return "0"+str;
+  return str;
+};
 const addDays=(base,n)=>{const d=new Date(base);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
 const todayStr=()=>new Date().toISOString().split("T")[0];
 const getStatus=(e)=>{const dl=daysLeft(e);if(dl===null)return"unknown";if(dl<=0)return"expired";if(dl<=7)return"warning";return"active";};
@@ -393,7 +400,10 @@ function StudentForm({student,template,doctors,onSave,onClose,saving,authToken})
     setErrors(e); return Object.keys(e).length===0;
   };
   const handleSave=()=>{
-    if(!validate()) return;
+    if(!validate()){
+      alert("Không thể lưu — vui lòng kiểm tra các trường được tô đỏ bên dưới.");
+      return;
+    }
     if(pendingPhotoId) api.markPhotoUsed(pendingPhotoId,authToken).catch(()=>{});
     onSave({...form,id:form.id||`s${Date.now()}`,birthYear:parseInt(form.birthYear)});
   };
@@ -1183,7 +1193,7 @@ function App(){
       const data = await api.getAll();
       if(data.error) throw new Error(data.error);
 
-      let stu = (data.students  || []).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate)}));
+      let stu = (data.students  || []).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate),phone:normalizePhone(s.phone)}));
       let doc = data.doctors   || [];
       let y5  = (data.y5classes || []).map(c=>({...c,startDate:toISODateOnly(c.startDate),endDate:toISODateOnly(c.endDate)}));
 
@@ -1209,7 +1219,7 @@ function App(){
       setLastSync(new Date().toLocaleTimeString("vi-VN"));
     } catch(e){
       console.warn("Sheets error:", e);
-      setStudents(loadLS(LS_S, SEED_STUDENTS).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate)})));
+      setStudents(loadLS(LS_S, SEED_STUDENTS).map(s=>({...s,startDate:toISODateOnly(s.startDate),endDate:toISODateOnly(s.endDate),phone:normalizePhone(s.phone)})));
       setDoctors(loadLS(LS_D, SEED_DOCTORS));
       setY5classes(loadLS(LS_Y5, []).map(c=>({...c,startDate:toISODateOnly(c.startDate),endDate:toISODateOnly(c.endDate)})));
       setSyncStatus("error");
